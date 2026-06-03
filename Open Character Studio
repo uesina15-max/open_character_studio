@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Character Studio (OCS)</title>
+  <style>
+    /* 기본 테마 및 스크롤바 제어 */
+    body {
+      display: flex;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background-color: #090d16; /* 극도의 깊이감을 주는 옵시디언 블랙 */
+      color: #f8fafc;
+      height: 100vh;
+      box-sizing: border-box;
+      gap: 16px;
+    }
+
+    /* 스크롤바 커스텀 */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6366f1;
+    }
+
+    /* 좌측 컨트롤 패널 */
+    #toolbar {
+      width: 340px;
+      padding: 18px;
+      background: #111827; /* 다크 네이비 그레이 */
+      border-radius: 14px;
+      box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(255, 255, 255, 0.03) inset;
+      border: 1px solid #1f2937;
+      overflow-y: auto;
+      height: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* 우측 작업 영역 - 투명 제도판 느낌의 그리드 배경 */
+    #canvas-container {
+      position: relative;
+      flex: 1;
+      background-color: #1a2333;
+      background-image: 
+        linear-gradient(45deg, #131b27 25%, transparent 25%), 
+        linear-gradient(-45deg, #131b27 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #131b27 75%), 
+        linear-gradient(-45deg, transparent 75%, #131b27 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 6px 18px rgba(0, 0, 0, 0.7);
+      border: 1px solid #1e293b;
+      height: 100%;
+    }
+
+    /* 캔버스 - 태블릿 및 펜 제어 간섭을 최소화하기 위해 touch-action 차단 */
+    canvas {
+      position: absolute;
+      background: transparent;
+      border-radius: 6px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      cursor: crosshair;
+      image-rendering: -webkit-optimize-contrast;
+      touch-action: none;
+    }
+
+    /* 타이포그래피 정제 */
+    h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin: 0 0 10px 0;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #1f2937;
+      color: #94a3b8; /* 차분한 그레이 */
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 버튼 기본 스타일 고도화 */
+    .btn {
+      padding: 9px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid #374151;
+      background: #1f2937;
+      color: #cbd5e1;
+      border-radius: 8px;
+      width: 100%;
+      box-sizing: border-box;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn svg {
+      flex-shrink: 0;
+    }
+
+    .btn:hover {
+      background: #374151;
+      color: #ffffff;
+      border-color: #4b5563;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    /* 버튼 그룹 배치 */
+    .btn-group {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .btn-half {
+      flex: 1;
+    }
+
+    /* 포인트 컬러 액센트 버튼 (메인 포인트: 일렉트릭 라벤더 그라디언트) */
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #ffffff;
+      border: none;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+      box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45);
+    }
+
+    /* 서브 액션 버튼 (다크 그레이 톤정리) */
+    .btn-secondary {
+      background: #111827;
+      color: #9ca3af;
+      border-color: #1f2937;
+    }
+
+    .btn-secondary:hover {
+      background: #1f2937;
+      color: #f3f4f6;
+      border-color: #6366f1;
+    }
+
+    /* 드로잉 툴 활성화 상태 */
+    .btn-active {
+      background: #6366f1 !important;
+      color: #ffffff !important;
+      border-color: #818cf8 !important;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.45);
+    }
+
+    /* 입력 폼 요소 정제 */
+    select, input[type="text"], input[type="number"] {
+      margin: 4px 0;
+      padding: 9px 12px;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      background: #030712; /* 매우 깊은 다크 백그라운드 */
+      color: #f3f4f6;
+      font-size: 0.75rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    select:focus, input[type="text"]:focus, input[type="number"]:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+    }
+
+    /* 불필요한 스택 공간 제거를 위한 인라인 래퍼 */
+    .form-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .form-item {
+      flex: 1;
+    }
+
+    /* 투명도 조절 슬라이더 */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #1f2937;
+      border-radius: 3px;
+      outline: none;
+      margin: 8px 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #818cf8;
+    }
+
+    /* 라벨링 */
+    label {
+      display: block;
+      margin-top: 10px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #64748b; /* 고급스러운 뉴트럴 그레이 */
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* 레이어 리스트 관련 상태 */
+    #layerStatus {
+      font-size: 0.65rem;
+      color: #f87171;
+      margin-top: 2px;
+      min-height: 14px;
+      font-weight: 500;
+    }
+
+    /* 분석 결과 대시보드 (디자인 분석 피드백 강조) */
+    #characterType {
+      margin-top: 8px;
+      padding: 12px;
+      background: #030712;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      text-align: left;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .analyzer-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #6366f1;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .analyzer-val {
+      color: #f8fafc;
+      font-weight: bold;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); /* 라벤더 블루 테마 통일 */
+      color: #ffffff;
+      border-radius: 5px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      margin-top: 4px;
+      margin-bottom: 6px;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    }
+
+    /* 이름 변경 섹션 인라인 조절 */
+    .rename-group {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .rename-group input {
+      margin: 0;
+      flex: 1;
+    }
+
+    .rename-group button {
+      width: auto;
+      white-space: nowrap;
+    }
+
+    /* 섹션 구분을 돕는 보더 블록 */
+    .section-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* 가이드 체크박스 커스텀 라벨 레이아웃 */
+    .checkbox-label {
+      font-weight: normal;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: none;
+      color: #cbd5e1;
+      margin-top: 0;
+      font-size: 0.75rem;
+      transition: color 0.15s ease;
+    }
+
+    .checkbox-label:hover {
+      color: #f8fafc;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      margin: 0;
+      width: 15px;
+      height: 15px;
+      accent-color: #6366f1;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <!-- 프로젝트 데이터 저장 영역 -->
+    <div class="section-block">
+      <h3>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Project
+      </h3>
+      <div class="btn-group">
+        <button class="btn btn-secondary btn-half" onclick="exportProject()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          프로젝트 저장
+        </button>
+        <button class="btn btn-secondary btn-half" onclick="document.getElementById('projectFile').click()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          불러오기
+        </button>
+      </div>
+      <input type="file" id="projectFile" accept=".json" style="display: none;" onchange="importProject(event)">
+      <div class="btn-group">
+        <button class="btn btn-primary btn-half" onclick="exportImage()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          PNG 저장
+        </button>
+        <button class="btn btn-secondary btn-half" style="border-color: #818cf8; color: #a5b4fc;" onclick="exportSVG()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          SVG 벡터 저장
+        </button>
+      </div>
+    </div>
+
+    <!-- 실행 기록 관리 -->
+    <div class="section-block">
+      <h3>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        History
+      </h3>
+      <div class="btn-group">
+        <button class="btn btn-half" onclick="undo()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H12"/></svg>
+          Undo
+        </button>
+        <button class="btn btn-half" onclick="redo()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 9.5 20H12"/></svg>
+          Redo
+        </button>
+      </div>
+    </div>
+
+    <!-- 레이어 파이프라인 컨트롤 -->
+    <div class="section-block">
+      <h3>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Layers
+      </h3>
+      <button class="btn" style="border-color: #4b5563;" onclick="addLayer()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        새 레이어 추가
+      </button>
+      <div class="btn-group">
+        <button class="btn btn-half" onclick="moveLayerUp()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          위로 이동
+        </button>
+        <button class="btn btn-half" onclick="moveLayerDown()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          아래로 이동
+        </button>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-item" style="flex: 2;">
+          <label>선택된 레이어</label>
+          <select id="layerSelect" onchange="selectLayer(this.value)"></select>
+        </div>
+        <div class="form-item" style="flex: 1;">
+          <label>투명도</label>
+          <input type="range" id="opacity" min="0" max="1" step="0.1" value="1" onchange="setOpacity(this.value)">
+        </div>
+      </div>
+      <div id="layerStatus"></div>
+      
+      <div class="btn-group">
+        <button class="btn btn-half" onclick="toggleVisibility()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+           숨김 토글
+        </button>
+        <button class="btn btn-half" onclick="toggleLock()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          잠금 토글
+        </button>
+      </div>
+      
+      <label>레이어 이름 변경</label>
+      <div class="rename-group">
+        <input type="text" id="layerName" placeholder="레이어명 입력">
+        <button class="btn" onclick="renameLayer()">변경</button>
+      </div>
+    </div>
+
+    <!-- 브러시 및 벡터 툴 옵션 -->
+    <div class="section-block">
+      <h3>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Tools
+      </h3>
+      <div class="btn-group" style="flex-wrap: wrap; gap: 4px;">
+        <button id="tool-brush" class="btn btn-active" style="width: 48%; font-size: 0.75rem;" onclick="setTool('brush')">브러시</button>
+        <button id="tool-eraser" class="btn" style="width: 48%; font-size: 0.75rem;" onclick="setTool('eraser')">지우개</button>
+        <button id="tool-bezier" class="btn" style="width: 48%; font-size: 0.75rem; border-color: #818cf8; color: #a5b4fc;" onclick="setTool('bezier')">베지어</button>
+        <button id="tool-edit" class="btn" style="width: 48%; font-size: 0.75rem; border-color: #10b981; color: #34d399;" onclick="setTool('edit')">노드 편집</button>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-item" style="flex: 1;">
+          <label>브러시 컬러</label>
+          <input type="color" id="colorPicker" value="#6366f1" style="height:32px; padding: 2px; cursor: pointer; margin: 4px 0;">
+        </div>
+        <div class="form-item" style="flex: 1;">
+          <label>브러시 크기</label>
+          <input type="number" id="lineWidth" value="3" min="1" max="20">
+        </div>
+      </div>
+      
+      <label>브러시 팁 스타일</label>
+      <select id="brushStyle">
+        <option value="round">둥근 브러시 (Round)</option>
+        <option value="square">각진 브러시 (Square)</option>
+      </select>
+    </div>
+
+    <!-- 가이드 시스템 -->
+    <div class="section-block">
+      <h3>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+        Guide & Analyzer
+      </h3>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px;">
+        <label class="checkbox-label">
+          <input type="checkbox" id="symmetryToggle"> 실시간 대칭 그리기 활성화
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="overlayToggle" onchange="toggleProportionOverlay(this.checked)"> Proportion Overlay (등신 가이드)
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="poseGuideToggle" onchange="togglePoseGuide(this.checked)"> Symmetry Pose Guide (포즈 가이드)
+        </label>
+      </div>
+
+      <button class="btn btn-secondary" onclick="addCharacterGuide()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        정면/측면 가이드 템플릿 로드
+      </button>
+      <button class="btn btn-secondary" style="border-color: #4f46e5; color: #a5b4fc;" onclick="startRatioMeasure()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+        등신 비율 자동 측정 시작
+      </button>
+      
+      <div id="characterType">
+        <div class="analyzer-title">Status</div>
+        <div style="color: #64748b;">분석 대기 중...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script>
+    // --- 데이터 모델 및 전역 상태 ---
+    const CharacterTypes = [
+      { name: "SSD (Chibi)", maxRatio: 2.5 },
+      { name: "SD (Super Deformed)", maxRatio: 4.0 },
+      { name: "MD (Semi-Realistic)", maxRatio: 6.5 },
+      { name: "LD (Realistic)", maxRatio: Infinity }
+    ];
+
+    // 메모리 누수 제어 깊이
+    const MAX_HISTORY = 20;
+
+    let layers = [];
+    let currentLayer = null;
+    let drawing = false;
+    let toolMode = "brush"; 
+    
+    let symmetryMode = false;
+    let lastX = 0; 
+    let lastY = 0;
+    
+    let measureMode = false;
+    let headTop = null; 
+    let chin = null; 
+    let foot = null;
+    let calculatedRatio = 6.0; // 기본 등신 가이드용 초기값
+    let calculatedType = "MD";
+
+    // 베지어 생성 버퍼
+    let bezierPoints = [];
+
+    // 가이드 오버레이 스위치
+    let proportionOverlayActive = false;
+    let poseGuideActive = false;
+
+    // 실시간 벡터 편집 타겟 정보
+    let selectedShape = null;
+    let selectedNodeKey = null; // 'p0', 'p1', 'cp' 중 하나
+
+    // --- 이벤트 바인딩 ---
+    document.getElementById("symmetryToggle").addEventListener("change", function() {
+      symmetryMode = this.checked;
+      redrawAllLayers();
+    });
+
+    // --- 툴 컨트롤러 ---
+    function setTool(mode) {
+      toolMode = mode;
+      document.querySelectorAll("[id^='tool-']").forEach(btn => btn.classList.remove("btn-active"));
+      document.getElementById(`tool-${mode}`).classList.add("btn-active");
+      bezierPoints = []; 
+      selectedShape = null;
+      selectedNodeKey = null;
+      redrawAllLayers();
+    }
+
+    // --- 가이드 오버레이 제어 ---
+    function toggleProportionOverlay(checked) {
+      proportionOverlayActive = checked;
+      redrawAllLayers();
+    }
+
+    // 포즈 가이드 수동 오버레이
+    function togglePoseGuide(checked) {
+      poseGuideActive = checked;
+      redrawAllLayers();
+    }
+
+    // --- 파일 IO (JSON 저장 및 불러오기 시 벡터 객체 및 분석결과 완벽 백업) ---
+    function exportProject() {
+      const projectData = {
+        version: "1.2",
+        guides: { symmetry: symmetryMode },
+        characterAnalysis: { ratio: calculatedRatio, type: calculatedType },
+        layers: layers.map(layer => ({
+          name: layer.name,
+          opacity: layer.canvas.style.opacity || "1",
+          visible: layer.visible,
+          locked: layer.locked,
+          shapes: layer.shapes || [], // 구조화된 벡터 데이터 저장
+          imageData: layer.canvas.toDataURL()
+        }))
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "ocs_project.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importProject(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const projectData = JSON.parse(e.target.result);
+          
+          layers.forEach(l => l.canvas.remove());
+          layers = [];
+
+          symmetryMode = projectData.guides.symmetry;
+          document.getElementById("symmetryToggle").checked = symmetryMode;
+
+          calculatedRatio = projectData.characterAnalysis.ratio || 6.0;
+          calculatedType = projectData.characterAnalysis.type || "MD";
+          
+          const typeBox = document.getElementById("characterType");
+          if(projectData.characterAnalysis.ratio) {
+            updateAnalyzerUI(calculatedRatio, calculatedType);
+          } else {
+            typeBox.innerHTML = `
+              <div class="analyzer-title">Status</div>
+              <div style="color: #64748b;">분석 대기 중...</div>
+            `;
+          }
+
+          projectData.layers.forEach((lData) => {
+            addLayer(lData.name);
+            const targetLayer = layers[layers.length - 1];
+            targetLayer.visible = lData.visible;
+            targetLayer.locked = lData.locked;
+            targetLayer.shapes = lData.shapes || []; // 벡터 복구
+            targetLayer.canvas.style.opacity = lData.opacity;
+            targetLayer.canvas.style.display = lData.visible ? 'block' : 'none';
+
+            const img = new Image();
+            img.onload = function() {
+              targetLayer.ctx.drawImage(img, 0, 0);
+              saveHistory(targetLayer);
+              redrawAllLayers();
+            };
+            img.src = lData.imageData;
+          });
+
+        } catch (err) {
+          alert("유효하지 않은 OCS 파일 포맷입니다.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- SVG 벡터 드로잉 완벽 저장 구현 (SVG Export) ---
+    function exportSVG() {
+      let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" style="background:#0f172a;">`;
+      
+      // 아래 레이어부터 순서대로 svg path 추출하여 컴파일
+      layers.forEach(layer => {
+        if (!layer.visible) return;
+        svgContent += `<!-- Layer: ${layer.name} -->`;
+        layer.shapes.forEach(shape => {
+          if (shape.type === "bezier") {
+            const p0 = shape.p0;
+            const p1 = shape.p1;
+            const cp = shape.cp;
+            svgContent += `<path d="M ${p0.x} ${p0.y} Q ${cp.x} ${cp.y} ${p1.x} ${p1.y}" fill="none" stroke="${shape.color}" stroke-width="${shape.width}" stroke-linecap="round" />`;
+            
+            if (symmetryMode) {
+              const mid = 800;
+              svgContent += `<path d="M ${mid - p0.x - 1} ${p0.y} Q ${mid - cp.x - 1} ${cp.y} ${mid - p1.x - 1} ${p1.y}" fill="none" stroke="${shape.color}" stroke-width="${shape.width}" stroke-linecap="round" />`;
+            }
+          }
+        });
+      });
+      
+      svgContent += `</svg>`;
+
+      const dataStr = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgContent);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "ocs_vector.svg");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // --- 실행 기록 메모리 최적화 엔진 ---
+    function saveHistory(layer) {
+      if(!layer) return;
+      layer.historyStep++;
+      layer.history.length = layer.historyStep;
+      layer.history.push(layer.ctx.getImageData(0, 0, layer.canvas.width, layer.canvas.height));
+      
+      // 메모리 누수 방지 슬라이싱 기법 적용
+      if (layer.history.length > MAX_HISTORY) {
+        layer.history.shift();
+        layer.historyStep--;
+      }
+    }
+
+    function undo() {
+      if(!currentLayer || currentLayer.historyStep <= 0) return;
+      currentLayer.historyStep--;
+      currentLayer.ctx.putImageData(currentLayer.history[currentLayer.historyStep], 0, 0);
+      redrawAllLayers();
+    }
+
+    function redo() {
+      if(!currentLayer || currentLayer.historyStep >= currentLayer.history.length - 1) return;
+      currentLayer.historyStep++;
+      currentLayer.ctx.putImageData(currentLayer.history[currentLayer.historyStep], 0, 0);
+      redrawAllLayers();
+    }
+
+    // --- 레이어 핵심 조작 ---
+    function addLayer(baseName="Layer") {
+      const canvas = document.createElement("canvas");
+      canvas.width = 800; 
+      canvas.height = 600;
+      canvas.style.zIndex = layers.length;
+      document.getElementById("canvas-container").appendChild(canvas);
+
+      const ctx = canvas.getContext("2d");
+      const newLayer = {
+        canvas, ctx,
+        name: baseName.includes("Layer") ? `${baseName} ${layers.length + 1}` : baseName,
+        visible: true, locked: false,
+        shapes: [], // 벡터 객체를 담는 구조 정의
+        history: [], historyStep: -1
+      };
+      
+      layers.push(newLayer);
+      currentLayer = newLayer;
+      saveHistory(newLayer);
+
+      // PointerEvents 바인딩 적용으로 타블렛 필압 지원 대응 및 멀티 터치 방해 금지
+      canvas.addEventListener("pointerdown", startDraw);
+      canvas.addEventListener("pointermove", draw);
+      canvas.addEventListener("pointerup", endDraw);
+      canvas.addEventListener("pointerout", endDraw);
+
+      updateLayerSelect();
+      redrawAllLayers();
+    }
+
+    function removeLayer() {
+      if (layers.length > 1) {
+        const layer = layers.pop();
+        layer.canvas.remove();
+        currentLayer = layers[layers.length - 1];
+        updateLayerSelect();
+        redrawAllLayers();
+      }
+    }
+
+    function moveLayerUp() {
+      if (!currentLayer) return;
+      let index = layers.indexOf(currentLayer);
+      if (index < layers.length - 1) {
+        [layers[index], layers[index + 1]] = [layers[index + 1], layers[index]];
+        updateZIndex(); 
+        updateLayerSelect();
+        redrawAllLayers();
+      }
+    }
+
+    function moveLayerDown() {
+      if (!currentLayer) return;
+      let index = layers.indexOf(currentLayer);
+      if (index > 0) {
+        [layers[index], layers[index - 1]] = [layers[index - 1], layers[index]];
+        updateZIndex(); 
+        updateLayerSelect();
+        redrawAllLayers();
+      }
+    }
+
+    function updateZIndex() {
+      layers.forEach((layer, i) => { layer.canvas.style.zIndex = i; });
+    }
+
+    function setOpacity(value) {
+      if (currentLayer) {
+        currentLayer.canvas.style.opacity = value;
+        redrawAllLayers();
+      }
+    }
+
+    // 선택 레이어 업데이트
+    function selectLayer(index) {
+      currentLayer = layers[index];
+      document.getElementById("opacity").value = currentLayer.canvas.style.opacity || 1;
+      updateLayerStatusUI();
+      redrawAllLayers();
+    }
+
+    function updateLayerSelect() {
+      const select = document.getElementById("layerSelect");
+      select.innerHTML = "";
+      layers.forEach((layer, i) => {
+        const option = document.createElement("option");
+        option.value = i;
+        let deco = !layer.visible ? " [Hidden]" : "";
+        deco += layer.locked ? " [Locked]" : "";
+        option.text = layer.name + deco;
+        if (layer === currentLayer) option.selected = true;
+        select.appendChild(option);
+      });
+      updateLayerStatusUI();
+    }
+
+    function updateLayerStatusUI() {
+      const statusDiv = document.getElementById("layerStatus");
+      if(!currentLayer) return;
+      statusDiv.innerText = (!currentLayer.visible || currentLayer.locked) ? `⚠️ 레이어가 잠겨있거나 숨겨진 상태입니다.` : "";
+    }
+
+    function renameLayer() {
+      if (currentLayer) {
+        const newName = document.getElementById("layerName").value;
+        if (newName.trim() !== "") { 
+          currentLayer.name = newName; 
+          updateLayerSelect(); 
+          document.getElementById("layerName").value = ""; 
+        }
+      }
+    }
+
+    function toggleVisibility() {
+      if(!currentLayer) return;
+      currentLayer.visible = !currentLayer.visible;
+      currentLayer.canvas.style.display = currentLayer.visible ? 'block' : 'none';
+      updateLayerSelect();
+      redrawAllLayers();
+    }
+
+    function toggleLock() {
+      if(!currentLayer) return;
+      currentLayer.locked = !currentLayer.locked;
+      updateLayerSelect();
+    }
+
+    // --- 전체 레이어 다시 그리기 메커니즘 (가이드 및 실시간 점선, 벡터 노드 가시화 핵심 엔진) ---
+    function redrawAllLayers() {
+      // 1. 레이어별 기저 이미지 렌더링
+      layers.forEach(layer => {
+        if (!layer.visible) return;
+        
+        // 히스토리 원천 데이터 복사
+        if(layer.history[layer.historyStep]) {
+          layer.ctx.putImageData(layer.history[layer.historyStep], 0, 0);
+        } else {
+          layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+        }
+
+        // 레이어 고유 벡터 shape 렌더링
+        layer.shapes.forEach(shape => {
+          if (shape.type === "bezier") {
+            drawQuadraticBezierRaw(layer.ctx, shape.p0, shape.p1, shape.cp, shape.color, shape.width);
+          }
+        });
+      });
+
+      // 2. 최상단 활성 레이어에 가이드 오버레이 레이어 렌더링
+      if (currentLayer && currentLayer.visible && !currentLayer.locked) {
+        const ctx = currentLayer.ctx;
+
+        // 등신 비율 오버레이 가이드라인
+        if (proportionOverlayActive) {
+          drawProportionOverlay(ctx);
+        }
+
+        // 얼굴 및 뼈대 대칭 포즈 가이드
+        if (poseGuideActive) {
+          drawSymmetryPoseGuide(ctx);
+        }
+
+        // 베지어 생성 중 실시간 가이드 점선 (P0 --- CP --- P1)
+        if (toolMode === "bezier" && bezierPoints.length > 0) {
+          drawLiveBezierGuide(ctx);
+        }
+
+        // [노드 편집기] 실시간 제어 앵커 및 핸들 표시
+        if (toolMode === "edit") {
+          drawNodeHandles(ctx);
+        }
+      }
+    }
+
+    // 순수 벡터 그리기 유틸리티
+    function drawQuadraticBezierRaw(ctx, p0, p1, cp, color, width) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = "round";
+
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.quadraticCurveTo(cp.x, cp.y, p1.x, p1.y);
+      ctx.stroke();
+
+      // 실시간 대칭 축 연산
+      if (symmetryMode) {
+        const mid = ctx.canvas.width;
+        ctx.beginPath();
+        ctx.moveTo(mid - p0.x - 1, p0.y);
+        ctx.quadraticCurveTo(mid - cp.x - 1, cp.y, mid - p1.x - 1, p1.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // --- 가이드 작도 오버레이 세부 함수 ---
+    function drawLiveBezierGuide(ctx) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(99, 102, 241, 0.75)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+
+      const p0 = bezierPoints[0];
+      const p1 = bezierPoints[1];
+
+      if (bezierPoints.length === 1) {
+        // P0 점 생성 상태 -> 마우스 가이드 (추적 필요)
+        ctx.fillStyle = "#6366f1";
+        ctx.beginPath(); ctx.arc(p0.x, p0.y, 4, 0, Math.PI*2); ctx.fill();
+      } else if (bezierPoints.length === 2) {
+        // P0 -> P1 라인 상태
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+
+        ctx.fillStyle = "#6366f1";
+        ctx.beginPath(); ctx.arc(p0.x, p0.y, 4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(p1.x, p1.y, 4, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // 등신 가이드 실시간 등분 분할선 가시화
+    function drawProportionOverlay(ctx) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(16, 185, 129, 0.35)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.font = "10px sans-serif";
+      ctx.fillStyle = "rgba(16, 185, 129, 0.75)";
+
+      const topY = 80;
+      const botY = 500;
+      const height = botY - topY;
+      const steps = Math.max(2, Math.round(calculatedRatio));
+
+      // 등분 선 그리기
+      for (let i = 0; i <= steps; i++) {
+        const currY = topY + (height / steps) * i;
+        ctx.beginPath();
+        ctx.moveTo(50, currY);
+        ctx.lineTo(750, currY);
+        ctx.stroke();
+        ctx.fillText(`${i} F`, 20, currY + 4);
+      }
+      ctx.restore();
+    }
+
+    // 대칭 포즈 가이드라인 오토 어시스트
+    function drawSymmetryPoseGuide(ctx) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(59, 130, 246, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.font = "9px sans-serif";
+      ctx.fillStyle = "rgba(59, 130, 246, 0.7)";
+
+      const mid = ctx.canvas.width / 2;
+      const topY = 80;
+      const botY = 500;
+      const totalH = botY - topY;
+      const stepH = totalH / Math.max(2, Math.round(calculatedRatio));
+
+      // 얼굴형 가이드라인 타원 그리기 (1등신 구간)
+      const headCenterY = topY + stepH / 2;
+      const headRadiusY = stepH / 2;
+      const headRadiusX = headRadiusY * 0.75;
+
+      ctx.beginPath();
+      ctx.ellipse(mid, headCenterY, headRadiusX, headRadiusY, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 수평 눈가선 위치 (얼굴 반 지점)
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath();
+      ctx.moveTo(mid - headRadiusX, headCenterY);
+      ctx.lineTo(mid + headRadiusX, headCenterY);
+      ctx.stroke();
+      ctx.fillText("눈/귀 선", mid + headRadiusX + 5, headCenterY + 3);
+
+      // 상체 쇄골 및 가슴선 (2등신 지점)
+      if (calculatedRatio >= 3) {
+        const chestY = topY + stepH * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(mid - 60, chestY);
+        ctx.lineTo(mid + 60, chestY);
+        ctx.stroke();
+        ctx.fillText("바스트 뼈대", mid + 65, chestY + 3);
+      }
+
+      // 골반 및 요추 중심선 (3 또는 4등신 지점)
+      const pelvisIndex = calculatedRatio <= 4 ? 2 : 3;
+      const pelvisY = topY + stepH * pelvisIndex;
+      ctx.beginPath();
+      ctx.moveTo(mid - 50, pelvisY);
+      ctx.lineTo(mid + 50, pelvisY);
+      ctx.stroke();
+      ctx.fillText("골반 위치", mid + 55, pelvisY + 3);
+
+      ctx.restore();
+    }
+
+    // 노드 선택 핸들러 그리기 (편집모드 활성화)
+    function drawNodeHandles(ctx) {
+      ctx.save();
+      currentLayer.shapes.forEach(shape => {
+        if (shape.type === "bezier") {
+          const isSelected = (selectedShape === shape);
+          ctx.lineWidth = 1;
+          
+          // 제어 앵커 연결 가이드 점선
+          ctx.strokeStyle = isSelected ? "rgba(245, 158, 11, 0.5)" : "rgba(148, 163, 184, 0.3)";
+          ctx.setLineDash([2, 2]);
+          ctx.beginPath();
+          ctx.moveTo(shape.p0.x, shape.p0.y);
+          ctx.lineTo(shape.cp.x, shape.cp.y);
+          ctx.lineTo(shape.p1.x, shape.p1.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // 노드 포인트 마커들
+          const nodes = [
+            { pt: shape.p0, key: 'p0', color: "#10b981", radius: 5 }, // 시작점 (그린)
+            { pt: shape.p1, key: 'p1', color: "#ef4444", radius: 5 }, // 끝점 (레드)
+            { pt: shape.cp, key: 'cp', color: "#f59e0b", radius: 6 }  // 제어점 (오렌지)
+          ];
+
+          nodes.forEach(node => {
+            const isNodeSelected = isSelected && selectedNodeKey === node.key;
+            ctx.fillStyle = node.color;
+            ctx.beginPath();
+            ctx.arc(node.pt.x, node.pt.y, node.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (isNodeSelected) {
+              ctx.strokeStyle = "#ffffff";
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(node.pt.x, node.pt.y, node.radius + 3, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          });
+        }
+      });
+      ctx.restore();
+    }
+
+    // --- 펜 프로세서 및 그리기 제어 (PointerEvents 완벽 통합) ---
+    function startDraw(e) {
+      if(!currentLayer || currentLayer.locked || !currentLayer.visible) return;
+
+      const rect = currentLayer.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if(measureMode){
+          handleMeasurePoint(x, y);
+          return;
+      }
+
+      // [베지어 곡선 모드] 3포인트 실시간 가이드 결합
+      if(toolMode === "bezier") {
+          handleBezierInput(x, y);
+          return;
+      }
+
+      // [노드 편집 제어 모드]
+      if(toolMode === "edit") {
+          handleEditNodeSelection(x, y);
+          return;
+      }
+
+      drawing = true;
+      const ctx = currentLayer.ctx;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      
+      lastX = x; 
+      lastY = y;
+    }
+
+    function draw(e) {
+      const rect = currentLayer.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // [노드 실시간 재 드래그 연산 처리]
+      if (toolMode === "edit" && selectedShape && selectedNodeKey) {
+          const pt = selectedShape[selectedNodeKey];
+          pt.x = x;
+          pt.y = y;
+          redrawAllLayers();
+          return;
+      }
+
+      if (!drawing || !currentLayer || currentLayer.locked || !currentLayer.visible || toolMode === "bezier") return;
+      
+      const ctx = currentLayer.ctx;
+      const baseWidth = document.getElementById("lineWidth").value;
+      const pressure = e.pressure !== undefined && e.pressure > 0 ? e.pressure : 1;
+      const lineWidth = baseWidth * pressure;
+
+      if (toolMode === "eraser") {
+        ctx.clearRect(x - baseWidth/2, y - baseWidth/2, baseWidth, baseWidth);
+        return;
+      }
+
+      ctx.strokeStyle = document.getElementById("colorPicker").value;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = document.getElementById("brushStyle").value === "square" ? "butt" : "round";
+
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      // 수학적으로 어긋나지 않는 가로 대칭축 매핑 보정 (mirrorX 연산 고도화)
+      if (symmetryMode) {
+        const mirrorX = currentLayer.canvas.width - x - 1;
+        const mirrorLastX = currentLayer.canvas.width - lastX - 1;
+        
+        ctx.beginPath();
+        ctx.moveTo(mirrorLastX, lastY);
+        ctx.lineTo(mirrorX, y);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+      }
+      lastX = x; 
+      lastY = y;
+    }
+
+    function endDraw() {
+      if (drawing) { 
+        drawing = false; 
+        saveHistory(currentLayer); 
+        redrawAllLayers();
+      }
+      if (toolMode === "edit") {
+        selectedNodeKey = null; // 드래그 드롭 릴리즈
+      }
+    }
+
+    // --- 노드 제어 선택 알고리즘 ---
+    function handleEditNodeSelection(x, y) {
+      selectedShape = null;
+      selectedNodeKey = null;
+
+      // 선택 감도 역치값 (픽셀 반경)
+      const threshold = 12;
+
+      // 역순 훑기 (가장 상단 벡터 노드부터 검출)
+      for (let i = currentLayer.shapes.length - 1; i >= 0; i--) {
+        const shape = currentLayer.shapes[i];
+        if (shape.type === "bezier") {
+          const distP0 = Math.hypot(shape.p0.x - x, shape.p0.y - y);
+          const distP1 = Math.hypot(shape.p1.x - x, shape.p1.y - y);
+          const distCP = Math.hypot(shape.cp.x - x, shape.cp.y - y);
+
+          if (distP0 < threshold) {
+            selectedShape = shape;
+            selectedNodeKey = 'p0';
+            break;
+          } else if (distP1 < threshold) {
+            selectedShape = shape;
+            selectedNodeKey = 'p1';
+            break;
+          } else if (distCP < threshold) {
+            selectedShape = shape;
+            selectedNodeKey = 'cp';
+            break;
+          }
+        }
+      }
+      redrawAllLayers();
+    }
+
+    // 3포인트 기반 베지어 연산기 & 벡터 객체 보존화
+    function handleBezierInput(x, y) {
+      bezierPoints.push({x, y});
+      redrawAllLayers();
+
+      if(bezierPoints.length === 3) {
+          const p0 = bezierPoints[0];
+          const p1 = bezierPoints[1];
+          const cp = bezierPoints[2];
+          const color = document.getElementById("colorPicker").value;
+          const width = document.getElementById("lineWidth").value;
+
+          // 구조화된 벡터 요소 누적 (DCC 패러다임 구현)
+          currentLayer.shapes.push({
+            type: "bezier",
+            p0, p1, cp,
+            color, width
+          });
+
+          bezierPoints = []; 
+          saveHistory(currentLayer);
+          redrawAllLayers();
+      }
+    }
+
+    // --- 가이드 및 스케일 분류 매커니즘 (Analyzer 진화) ---
+    function classifyCharacter(ratio) {
+      const match = CharacterTypes.find(type => ratio <= type.maxRatio);
+      return match ? match.name : "미분석";
+    }
+
+    function startRatioMeasure() {
+      measureMode = true; 
+      headTop = null; 
+      chin = null; 
+      foot = null;
+      alert("비율 측정을 시작합니다.\n캔버스 위에서 순서대로 클릭해 주세요.\n\n1. 머리 꼭대기  →  2. 턱 끝  →  3. 발바닥");
+    }
+
+    function handleMeasurePoint(x, y) {
+      const ctx = currentLayer.ctx;
+      ctx.fillStyle = "#10b981";
+      ctx.beginPath(); 
+      ctx.arc(x, y, 4, 0, Math.PI * 2); 
+      ctx.fill();
+
+      if (!headTop) { 
+        headTop = {x, y}; 
+        return; 
+      }
+      if (!chin) { 
+        chin = {x, y}; 
+        return; 
+      }
+      if (!foot) {
+        foot = {x, y};
+        measureMode = false;
+        
+        const headHeight = chin.y - headTop.y;
+        const bodyHeight = foot.y - headTop.y;
+        
+        if (headHeight <= 0 || bodyHeight <= 0) {
+          alert("잘못된 방향 감지: 상단에서 하단 순서로 정교하게 찍어 주십시오.");
+          return;
+        }
+
+        calculatedRatio = bodyHeight / headHeight;
+        calculatedType = classifyCharacter(calculatedRatio);
+
+        updateAnalyzerUI(calculatedRatio, calculatedType);
+        saveHistory(currentLayer);
+        redrawAllLayers();
+      }
+    }
+
+    // 정교한 드로잉 분석 및 제안 엔진 UI 업데이트
+    function updateAnalyzerUI(ratio, typeName) {
+      let analysisFeedback = "";
+      let recommendedGenre = "";
+
+      if (ratio <= 2.5) {
+        analysisFeedback = "머리가 크고 극대화된 데포르메가 특징입니다. 귀여움과 소형 완구화에 적절한 비율을 갖추고 있습니다.";
+        recommendedGenre = "캐주얼 굿즈, 미니 피규어, 캐릭터 이모티콘";
+      } else if (ratio <= 4.0) {
+        analysisFeedback = "안정적이고 대중화된 SD 등신대입니다. 머리와 바디의 조화로 조형적 가독성이 매우 뛰어납니다.";
+        recommendedGenre = "플랫포머 게임 원화, 하이퍼 캐주얼 일러스트";
+      } else if (ratio <= 6.5) {
+        analysisFeedback = "상체와 골반의 중심 설계가 최적화된 반실사 스타일입니다. 서브컬처 일러스트에서 가장 사랑받는 비율입니다.";
+        recommendedGenre = "웹툰 키비주얼, 캐주얼 모바일 RPG 컨셉 아트";
+      } else {
+        analysisFeedback = "긴 하체와 시원하게 뻗은 골반 라인을 가집니다. 해부학적 정확도와 실사 중심의 우아함이 돋보입니다.";
+        recommendedGenre = "하이 실사형 RPG 원화, 일러스트레이션 아트북";
+      }
+
+      document.getElementById("characterType").innerHTML = `
+        <div class="analyzer-title">Analysis Results</div>
+        <div style="margin-top: 4px;">분류 : <span class="badge">${typeName}</span></div>
+        <div>등신 비율 : <span class="analyzer-val">약 ${ratio.toFixed(1)} 등신</span></div>
+        <div style="margin-top: 8px; font-size: 0.75rem; border-top: 1px solid #1f2937; padding-top: 8px;">
+          <span style="color:#6366f1; font-weight:bold;">체형 피드백:</span><br>
+          <span style="color: #cbd5e1;">${analysisFeedback}</span>
+        </div>
+        <div style="margin-top: 8px; font-size: 0.75rem;">
+          <span style="color:#10b981; font-weight:bold;">추천 장르:</span><br>
+          <span style="color: #cbd5e1;">${recommendedGenre}</span>
+        </div>
+      `;
+    }
+
+    // 가이드 템플릿 로더
+    function addCharacterGuide() {
+      addLayer("Guide Layer");
+      const ctx = currentLayer.ctx;
+      ctx.lineWidth = 1; 
+      ctx.font = "13px sans-serif";
+
+      ctx.strokeStyle = "#475569";
+      ctx.strokeRect(100, 80, 200, 420);
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText("Front Guide (정면)", 140, 70);
+
+      ctx.strokeStyle = "#f43f5e";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); 
+      ctx.moveTo(200, 80); 
+      ctx.lineTo(200, 500); 
+      ctx.stroke();
+      ctx.setLineDash([]); 
+
+      ctx.strokeStyle = "#475569";
+      ctx.strokeRect(500, 80, 200, 420);
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText("Side Guide (측면)", 540, 70);
+
+      saveHistory(currentLayer);
+      redrawAllLayers();
+    }
+
+    // 합성 및 이미지 익스포트
+    function exportImage() {
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = 800; 
+      exportCanvas.height = 600;
+      const exportCtx = exportCanvas.getContext("2d");
+
+      exportCtx.fillStyle = "#0f172a";
+      exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+      layers.forEach(layer => {
+        if (layer.visible) {
+          exportCtx.save();
+          exportCtx.globalAlpha = parseFloat(layer.canvas.style.opacity);
+          exportCtx.drawImage(layer.canvas, 0, 0);
+          exportCtx.restore();
+        }
+      });
+
+      const link = document.createElement("a");
+      link.download = "ocs_character_sheet.png";
+      link.href = exportCanvas.toDataURL();
+      link.click();
+    }
+
+    // 최초 레이어 빌드
+    addLayer("Main Layer");
+  </script>
+</body>
+</html>
