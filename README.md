@@ -1,2 +1,2 @@
 # open_character_studio
-Open Source Character Design and Proportional Analysis Drawing Studio
+Open Character Studio is an open-source character design workstation focused on proportion analysis, educational guides, and deforming character construction.
